@@ -1,0 +1,75 @@
+FROM ubuntu:20.04
+
+# General
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+	python3-pip cmake autoconf autogen pkgconf \
+	libtool libdrm-dev \
+	xorg xorg-dev \ # vaapi
+	openbox libx11-dev libgl1-mesa-glx libgl1-mesa-dev \ # vaapi
+	vainfo vim git
+RUN pip3 install --upgrade pip
+RUN pip3 install meson
+
+WORKDIR /opt
+RUN git clone https://github.com/intel/libva.git && \
+	cd libva && git checkout bc5c4b0
+RUN git clone https://github.com/intel/gmmlib.git && \
+	cd gmmlib && git checkout intel-gmmlib-21.3.1
+RUN mkdir media-driver && cd media-driver && \
+	git clone https://github.com/intel/media-driver.git && \
+	cd media-driver && git checkout intel-media-21.3.4
+RUN git clone https://github.com/Intel-Media-SDK/MediaSDK.git mediasdk && \
+	cd mediasdk && git checkout intel-mediasdk-21.3.5
+RUN git clone https://github.com/opencv/opencv.git && \
+	cd opencv && git checkout 4.5.3
+
+# libva
+WORKDIR /opt/libva
+RUN ./autogen.sh
+RUN make -j"$(nproc)"
+RUN make install
+
+# gmmlib
+WORKDIR /opt/gmmlib
+RUN mkdir build && cd build && \
+	cmake -DCMAKE_BUILD_TYPE=Release ..
+RUN cd build && make -j"$(nproc)"
+RUN cd build && make install
+
+# intel-media-driver
+WORKDIR /opt/media-driver
+RUN mkdir build_media && cd build_media && \
+	cmake ../media-driver
+RUN cd build_media && make -j"$(nproc)"
+RUN cd build_media && make install
+
+# vaapi
+WORKDIR /opt/mediasdk
+RUN mkdir build && cd build && \
+	cmake ..
+RUN cd build && make -j"$(nproc)"
+RUN cd build && make install
+
+# gstreamer
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+	libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+	gstreamer1.0-plugins-base-apps \
+	gstreamer1.0-plugins-bad gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+	gstreamer1.0-tools gstreamer1.0-vaapi
+ENV GST_VAAPI_ALL_DRIVERS=1
+
+# OpenCV
+WORKDIR /opt/opencv
+RUN mkdir build && cd build &&  \
+	cmake -D CMAKE_BUILD_TYPE=RELEASE \
+	      -D INSTALL_C_EXAMPLES=OFF \
+	      -D PYTHON_EXECUTABLE=/usr/bin/python3 \
+	      -D BUILD_opencv_python2=OFF \
+	      -D CMAKE_INSTALL_PREFIX=/usr \
+	      -D PYTHON3_EXECUTABLE=/usr/bin/python3 \
+	      -D PYTHON3_INCLUDE_DIR=/usr/include/python3.6m \
+	      -D PYTHON3_PACKAGES_PATH=/usr/lib/python3/dist-packages \
+	      -D WITH_GSTREAMER=ON \
+	      -D WITH_MFX=ON ..
+RUN cd build && make -j"$(nproc)"
+RUN cd build && make install
