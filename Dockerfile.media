@@ -1,11 +1,13 @@
+# This Dockerfile installs GStreamer (+ VAAPI plugin) and OpenCV with GStreamer backend on Ubuntu 20.04
+
 FROM ubuntu:20.04
 
 # General
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
 	python3-pip cmake autoconf autogen pkgconf \
 	libtool libdrm-dev \
-	xorg xorg-dev \ # vaapi
-	openbox libx11-dev libgl1-mesa-glx libgl1-mesa-dev \ # vaapi
+	xorg xorg-dev \
+	openbox libx11-dev libgl1-mesa-glx libgl1-mesa-dev \
 	vainfo vim git
 RUN pip3 install --upgrade pip
 RUN pip3 install meson
